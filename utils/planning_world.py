@@ -14,6 +14,7 @@ class PlanningWorld:
         for i in range(len(problem.objects)):
             self.obj_idx[problem.objects[i]] = i
         self.predicates = self.domain.predicates
+        self.actions = self.domain.actions
         self.init_state()
 
     def init_state(self):
@@ -25,6 +26,16 @@ class PlanningWorld:
             pred = self.predicates[name]
             self.pred_offsets[name] = offset
             offset += self.n**pred.arity
+        self.num_preds = offset
+        names = list(self.actions.keys())
+        self.action_offsets = {}
+        offset = 0
+        for i in range(len(names)):
+            name = names[i]
+            action = self.actions[name]
+            self.action_offsets[name] = offset
+            offset += self.n**action.arity
+        self.num_actions = offset
         self.state = np.zeros(offset, np.bool_)
         self.set_state(self.problem.init)
 
@@ -40,6 +51,9 @@ class PlanningWorld:
     # return the index of a grounded predicate
     def pred_index(self, pred, args):
         return self.pred_offsets[pred] + self.ground_number(args)
+
+    def action_index(self, action, args):
+        return self.action-offsets[action] + self.ground_number(args)
 
     # takes a tuple of clauses (implicit AND) and updates the state
     # to make all clauses true
@@ -64,6 +78,11 @@ class PlanningWorld:
     def pred_expr(self, index):
         offset, name = sorted([(self.pred_offsets[name], name) for name in self.pred_offsets if self.pred_offsets[name] <= index])[-1]
         args = self.ground_args(index - offset, self.predicates[name].arity)
+        return (name,) + args
+
+    def action_expr(self, index):
+        offset, name = sorted([(self.action_offsets[name], name) for name in self.action_offsets if self.action_offsets[name] <= index])[-1]
+        args = self.ground_args(index - offset, self.actions[name].arity)
         return (name,) + args
 
     # returns the state in expression form (tuple of true predicates)
