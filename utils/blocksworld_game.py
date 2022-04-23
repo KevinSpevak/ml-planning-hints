@@ -4,15 +4,42 @@ from .planning_world import PlanningWorld
 from os.path import dirname, join
 import numpy as np
 import pdb
+import random
 
 class BlocksworldGame:
-    def __init__(self):
+    def __init__(self, num_blocks=None):
         self.pddl_path = join(dirname(dirname(__file__)), "pddl", "blocksworld")
         self.domain = Domain.read_from_file(join(self.pddl_path, "domain.pddl"))
-        self.load_problem_file("sussman.pddl")
+        if num_blocks:
+            self.random_instance(num_blocks)
+        else:
+            self.load_problem_file("sussman.pddl")
 
     def load_problem_file(self, fname):
         self.problem = Problem.read_from_file(self.domain, join(self.pddl_path, fname))
+        self.world = PlanningWorld(self.problem)
+
+    # random n-block problem instance with goal to
+    # stack all the blocks in ordered tower
+    def random_instance(self, n):
+        blocks = [chr(65+i) for i in range(n)]
+        random.shuffle(blocks)
+        top_blocks, init = [], []
+        for block in blocks:
+            place = random.choice(top_blocks + ["table"])
+            if place == "table":
+                init.append(("ontable", block))
+            else:
+                init.append(("on", block, place))
+                top_blocks.remove(place)
+            top_blocks.append(block)
+        for block in top_blocks:
+            init.append(("clear", block))
+        init.append(("handempty",))
+        blocks.sort()
+        goal = [("on", blocks[i], blocks[i+1])
+                for i in range(len(blocks) - 1)]
+        self.problem = Problem("random", self.domain, blocks, tuple(init), tuple(goal))
         self.world = PlanningWorld(self.problem)
 
     def open_cli(self):

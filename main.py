@@ -4,5 +4,5 @@ from utils.blocksworld_game import BlocksworldGame
 import pdb
 
 if __name__ == "__main__":
-    game = BlocksworldGame()
+    game = BlocksworldGame(num_blocks=5)
     game.open_cli()
