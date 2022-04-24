@@ -75,6 +75,76 @@ class BlocksworldGame:
             else:
                 print("Illegal action")
 
+    def open_cli_num(self):
+        print("Starting number input based cli")
+        while True:
+            self.display_state()
+            for i in range(self.world.num_actions):
+                print(i, self.world.action_expr(i))
+            command = input("enter action")
+            expr = self.world.action_expr(int(command))
+            if self.world.is_legal(expr[0], expr[1:]):
+                self.world.take_action(expr[0], expr[1:])
+                if self.world.goal_satisfied():
+                    self.display_state()
+                    print("Goal Satisfied!")
+                    print("Final state", self.world.state_expr())
+                    break # TODO start new problem?
+            else:
+                print("Illegal action")
+
+    # bad name, this function trains a q table from scratch
+    # we will also have a funciton that read a q table from a file
+    # perhaps we will call that ql_implement?
+    def ql_learn_init(self):
+        self.q_table = np.zeros((self.world.num_actions,1))
+        self.mask = np.ones((self.world.num_actions,1))
+        self.state_index = {}
+        self.state_index[self.world.state_expr()] = 0
+        print("Starting learning process")
+        for i in range(self.world.num_actions):
+            print(i, self.world.action_expr(i))
+
+        e = 1 #epsilon
+        while True:
+            self.display_state()
+            if not self.world.state_expr() in self.state_index:
+                print("We're not in Kansas anymore!")
+                self.state_index[self.world.state_expr()] = len(self.state_index)
+                self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
+                self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
+            print(self.q_table)
+            print(self.mask)
+            print(self.state_index)
+
+            # choose action part
+            state = self.state_index[self.world.state_expr()]
+            if random.random()>e:
+                command = 0 # replace this with greedy seleciton
+            else:
+                print("Random action!")
+                
+                indices = np.where(np.transpose(self.mask)[state] == 1)[0]
+                print(indices)
+
+                #print(command)
+                command = input("")
+                command = random.choice(indices)
+                print("Agent chose", command)
+
+            # end of action selection
+
+            expr = self.world.action_expr(int(command))
+            if self.world.is_legal(expr[0], expr[1:]):
+                self.world.take_action(expr[0], expr[1:])
+                if self.world.goal_satisfied():
+                    self.display_state()
+                    print("Goal Satisfied!")
+                    print("Final state", self.world.state_expr())
+                    break # TODO start new problem?
+            else:
+                print("Illegal action")
+                self.mask[int(command)][self.state_index[self.world.state_expr()]] = 0
 
     def display_state(self):
         state = self.world.state_expr()
