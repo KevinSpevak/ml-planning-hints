@@ -113,14 +113,15 @@ class BlocksworldGame:
                 self.state_index[self.world.state_expr()] = len(self.state_index)
                 self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
                 self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
-            print(self.q_table)
-            print(self.mask)
+            #print(self.q_table)
+            #print(self.mask)
             print(self.state_index)
 
             # choose action part
             state = self.state_index[self.world.state_expr()]
             if random.random()>e:
                 command = 0 # replace this with greedy seleciton
+                
             else:
                 print("Random action!")
                 
@@ -128,7 +129,12 @@ class BlocksworldGame:
                 print(indices)
 
                 #print(command)
+                #testing hypothetical states
                 command = input("")
+                expr = self.world.action_expr(int(command))
+                print(self.world.state_if_action(expr[0],expr[1:]))
+                # done testing
+
                 command = random.choice(indices)
                 print("Agent chose", command)
 
@@ -137,10 +143,16 @@ class BlocksworldGame:
             expr = self.world.action_expr(int(command))
             if self.world.is_legal(expr[0], expr[1:]):
                 self.world.take_action(expr[0], expr[1:])
+                reward = 0
                 if self.world.goal_satisfied():
                     self.display_state()
                     print("Goal Satisfied!")
                     print("Final state", self.world.state_expr())
+                    reward = 1
+                    
+                # update q table
+
+                if self.world.goal_satisfied():
                     break # TODO start new problem?
             else:
                 print("Illegal action")

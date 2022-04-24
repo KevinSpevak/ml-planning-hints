@@ -2,6 +2,7 @@
 # tracks state space and models changes through actions
 import pdb
 import numpy as np
+import copy
 from .pddl import GroundAction
 
 class PlanningWorld:
@@ -38,6 +39,8 @@ class PlanningWorld:
         self.num_actions = offset
         self.state = np.zeros(offset, np.bool_)
         self.set_state(self.problem.init)
+
+        self.temp_state = np.zeros(offset, np.bool_)
 
     # Assigns each set of args a int in the range [0, n^arity) where n is
     # the number of objects. This is used to order ground predicates
@@ -93,6 +96,7 @@ class PlanningWorld:
             exprs.append(self.pred_expr(index))
         return tuple(exprs)
 
+
     def all_true(self, clauses):
         pred_indices = [self.pred_index(clause[0], clause[1:]) for clause in clauses]
         return np.all(self.state[pred_indices])
@@ -106,6 +110,27 @@ class PlanningWorld:
             raise Exception("illegal action " + str((action,) + args))
         grounded = GroundAction(self.domain.actions[action], args)
         self.set_state(grounded.eff)
+
+    def state_if_action(self, action, args):
+        self.temp_state = copy.deepcopy(self.state)
+        if not self.is_legal(action, args):
+            raise Exception("illegal action " + str((action,) + args))
+        grounded = GroundAction(self.domain.actions[action], args)
+        expr = grounded.eff
+
+        for clause in expr:
+            val = True
+            if (clause[0] == "not"):
+                clause = clause[1]
+                val = False
+            self.temp_state[self.pred_index(clause[0], clause[1:])] = val
+
+        indices = np.where(self.temp_state == True)[0]
+        exprs = []
+        for index in indices:
+            exprs.append(self.pred_expr(index))
+        return tuple(exprs)
+
 
     def goal_satisfied(self):
         return self.all_true(self.problem.goal)
