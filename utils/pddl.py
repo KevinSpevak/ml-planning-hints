@@ -4,6 +4,7 @@
 import re
 import pdb
 import os
+import numpy as np
 
 class Parser:
     ATOM_RE = re.compile("^[^()\s]+$")
@@ -173,6 +174,19 @@ class Action:
         return 'Action "' + self.name + '" | params: ' + str(self.params) \
             + " | pre: " + str(self.pre) + " | eff: " + str(self.eff)
 
+class GroundPredicate:
+    def __init__(self, pred, args):
+        self.pred = pred
+        self.args = args
+        if len(args) != pred.arity:
+            raise Exception("got " + str(len(args)) + " args for predicate with arity " + str(pred.arity))
+
+    def expr(self):
+        return (self.pred.name,) + self.args
+
+    def __repr__(self):
+        return str(self.expr())
+
 class GroundAction:
     def __init__(self, action, args):
         self.action = action
@@ -184,7 +198,41 @@ class GroundAction:
             self.pre = Expression.sub(self.pre, action.params[i], args[i])
             self.eff = Expression.sub(self.eff, action.params[i], args[i])
 
+    def expr(self):
+        return (self.action.name,) + self.args
+
+    def __repr__(self):
+        return str(self.expr())
+
 class Problem:
+    # iterator of tuples of objects
+    class ObjectTupleIterator:
+        def __init__(self, objects, n):
+            self.objects = objects
+            self.nobjs = len(objects)
+            self.n = n
+            self.i = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            # special case
+            if (self.n == 0):
+                if self.i == 0:
+                    self.i += 1
+                    return ()
+                else:
+                    raise StopIteration
+            indices = []
+            while len(np.unique(indices)) < self.n:
+                if self.i >= self.nobjs**self.n:
+                    raise StopIteration
+                indices = [self.i % (self.nobjs ** (p+1)) // (self.nobjs ** p)
+                           for p in range(self.n)]
+                self.i += 1
+            return tuple([self.objects[ind] for ind in indices])
+
     @classmethod
     def read_from_file(cls, domain, fname):
         return cls.from_pddl(domain, Parser.read_from_file(fname))
@@ -234,6 +282,23 @@ class Problem:
         self.objects = objects
         self.init = init
         self.goal = goal
+
+    def ground_iterator(self, n):
+        return Problem.ObjectTupleIterator(self.objects, n)
+
+    def generate_ground_actions(self):
+        ground = []
+        for action in self.domain.actions.values():
+            for args in self.ground_iterator(action.arity):
+                ground.append(GroundAction(action, args))
+        return ground
+
+    def generate_ground_predicates(self):
+        ground = []
+        for pred in self.domain.predicates.values():
+            for args in self.ground_iterator(pred.arity):
+                ground.append(GroundPredicate(pred, args))
+        return ground
 
     def __repr__(self):
         return 'Problem "' + self.name + '" in domain "' + self.domain.name + '"\nOBJECTS: ' \

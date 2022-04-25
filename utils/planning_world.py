@@ -19,44 +19,27 @@ class PlanningWorld:
         self.init_state()
 
     def init_state(self):
-        names = list(self.predicates.keys())
-        self.pred_offsets = {}
-        offset = 0
-        for i in range(len(names)):
-            name = names[i]
-            pred = self.predicates[name]
-            self.pred_offsets[name] = offset
-            offset += self.n**pred.arity
-        self.num_preds = offset
-        names = list(self.actions.keys())
-        self.action_offsets = {}
-        offset = 0
-        for i in range(len(names)):
-            name = names[i]
-            action = self.actions[name]
-            self.action_offsets[name] = offset
-            offset += self.n**action.arity
-        self.num_actions = offset
-        self.state = np.zeros(offset, np.bool_)
+        self.ground_preds = self.problem.generate_ground_predicates()
+        self.num_preds = len(self.ground_preds)
+        self.pred_indices = {}
+        for i in range(len(self.ground_preds)):
+            self.pred_indices[self.ground_preds[i].expr()] = i
+        self.ground_actions = self.problem.generate_ground_actions()
+        self.num_actions = len(self.ground_actions)
+        self.action_indices = {}
+        for i in range(len(self.ground_actions)):
+            self.action_indices[self.ground_actions[i].expr()] = i
+        self.state = np.zeros(self.num_preds, np.bool_)
         self.set_state(self.problem.init)
 
-        self.temp_state = np.zeros(offset, np.bool_)
-
-    # Assigns each set of args a int in the range [0, n^arity) where n is
-    # the number of objects. This is used to order ground predicates
-    # in the state space representation
-    def ground_number(self, args):
-        num = 0
-        for i in range(len(args)):
-            num += self.obj_idx[args[i]] * self.n**i
-        return num
+        self.temp_state = np.zeros(self.num_preds, np.bool_)
 
     # return the index of a grounded predicate
     def pred_index(self, pred, args):
-        return self.pred_offsets[pred] + self.ground_number(args)
+        return self.pred_indices[(pred,) + args]
 
     def action_index(self, action, args):
-        return self.action-offsets[action] + self.ground_number(args)
+        return self.action_indices[(action,) + args]
 
     # takes a tuple of clauses (implicit AND) and updates the state
     # to make all clauses true
@@ -68,25 +51,12 @@ class PlanningWorld:
                 val = False
             self.state[self.pred_index(clause[0], clause[1:])] = val
 
-    # inverse of ground_num
-    def ground_args(self, num, arity):
-        args = []
-        for i in range(arity):
-            idx = num % self.n
-            args.append(self.objects[idx])
-            num = int((num - idx) / self.n)
-        return tuple(args)
-
     # inverse of pred_index
     def pred_expr(self, index):
-        offset, name = sorted([(self.pred_offsets[name], name) for name in self.pred_offsets if self.pred_offsets[name] <= index])[-1]
-        args = self.ground_args(index - offset, self.predicates[name].arity)
-        return (name,) + args
+        return self.ground_preds[index].expr()
 
     def action_expr(self, index):
-        offset, name = sorted([(self.action_offsets[name], name) for name in self.action_offsets if self.action_offsets[name] <= index])[-1]
-        args = self.ground_args(index - offset, self.actions[name].arity)
-        return (name,) + args
+        return self.ground_actions[index].expr()
 
     # returns the state in expression form (tuple of true predicates)
     def state_expr(self):
@@ -102,20 +72,20 @@ class PlanningWorld:
         return np.all(self.state[pred_indices])
 
     def is_legal(self, action, args):
-        grounded = GroundAction(self.domain.actions[action], args)
+        grounded = self.ground_actions[self.action_index(action, args)]
         return self.all_true(grounded.pre)
 
     def take_action(self, action, args):
         if not self.is_legal(action, args):
             raise Exception("illegal action " + str((action,) + args))
-        grounded = GroundAction(self.domain.actions[action], args)
+        grounded = self.ground_actions[self.action_index(action, args)]
         self.set_state(grounded.eff)
 
     def state_if_action(self, action, args):
         self.temp_state = copy.deepcopy(self.state)
         if not self.is_legal(action, args):
             raise Exception("illegal action " + str((action,) + args))
-        grounded = GroundAction(self.domain.actions[action], args)
+        grounded = self.ground_actions[self.action_index(action, args)]
         expr = grounded.eff
 
         for clause in expr:
