@@ -106,57 +106,71 @@ class BlocksworldGame:
             print(i, self.world.action_expr(i))
 
         e = 1 #epsilon
-        while True:
+        a = .9 #alpha
+        y = .9 #gamma
+        t = 0
+        while e > 0.1:
             self.display_state()
-            if not self.world.state_expr() in self.state_index:
-                print("We're not in Kansas anymore!")
-                self.state_index[self.world.state_expr()] = len(self.state_index)
-                self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
-                self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
-            #print(self.q_table)
-            #print(self.mask)
-            print(self.state_index)
 
             # choose action part
             state = self.state_index[self.world.state_expr()]
             if random.random()>e:
-                command = 0 # replace this with greedy seleciton
-                
+                command = np.argmax(np.transpose(self.q_table)[state])
+                print("Agent greedily chose", command)
             else:
                 print("Random action!")
-                
                 indices = np.where(np.transpose(self.mask)[state] == 1)[0]
-                print(indices)
-
-                #print(command)
-                #testing hypothetical states
-                command = input("")
-                expr = self.world.action_expr(int(command))
-                print(self.world.state_if_action(expr[0],expr[1:]))
-                # done testing
-
                 command = random.choice(indices)
                 print("Agent chose", command)
-
             # end of action selection
 
             expr = self.world.action_expr(int(command))
             if self.world.is_legal(expr[0], expr[1:]):
+                # take action
                 self.world.take_action(expr[0], expr[1:])
+
+                # observe s'
+                if not self.world.state_expr() in self.state_index:
+                    print("We're not in Kansas anymore!")
+                    self.state_index[self.world.state_expr()] = len(self.state_index)
+                    self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
+                    self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
+
                 reward = 0
                 if self.world.goal_satisfied():
                     self.display_state()
                     print("Goal Satisfied!")
                     print("Final state", self.world.state_expr())
                     reward = 1
-                    
                 # update q table
-
-                if self.world.goal_satisfied():
-                    break # TODO start new problem?
+                max_a = np.amax(np.transpose(self.q_table)[self.state_index[self.world.state_expr()]] )
+                self.q_table[command][state] += a * (reward + y* max_a - self.q_table[command][state])
+                t += 1
+                if self.world.goal_satisfied() or t>1000:
+                    t = 0
+                    e *= .95
+                    self.__init__(3)
+                    if not self.world.state_expr() in self.state_index:
+                        print("We're not in Kansas anymore!")
+                        self.state_index[self.world.state_expr()] = len(self.state_index)
+                        self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
+                        self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
             else:
                 print("Illegal action")
                 self.mask[int(command)][self.state_index[self.world.state_expr()]] = 0
+        print(self.q_table)
+        print(self.mask)
+        np.save('q_table',self.q_table)
+        np.save('q_mask',self.mask)
+        # save state index too
+
+    def test_q(self):
+        self.q_table = np.load('q_table.npy')
+        self.q_mask = np.load('q_mask.npy')
+        # load state index
+        print(self.q_table)
+        print(self.mask)
+
 
     def display_state(self):
         state = self.world.state_expr()
