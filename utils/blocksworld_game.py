@@ -5,6 +5,7 @@ from os.path import dirname, join
 import numpy as np
 import pdb
 import random
+from datetime import datetime
 
 class BlocksworldGame:
     def __init__(self, num_blocks=None):
@@ -170,7 +171,69 @@ class BlocksworldGame:
         # load state index
         print(self.q_table)
         print(self.mask)
+        steps = 0
 
+        # Initialize the blocksworld
+        self.__init__(3)
+        if not self.world.state_expr() in self.state_index:
+            print("We're not in Kansas anymore!")
+            self.state_index[self.world.state_expr()] = len(self.state_index)
+            self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions, 1)), axis=1)
+            self.mask = np.append(self.mask, np.ones((self.world.num_actions, 1)), axis=1)
+
+        # Is goal satisfied?
+        sat = False
+
+        # Timing
+        start = datetime.now()
+        print(start)
+
+        with open('test.txt', 'a') as f:
+            print(start, file = f)
+
+        # While the goal isn't satisfied, choose actions and move through the problem
+        while not sat:
+            print("On step: ", steps)
+            with open('test.txt', 'a') as f:
+                print("On step: ", steps, file=f)
+            self.display_state()
+
+            # choose action part
+            state = self.state_index[self.world.state_expr()]
+            # Always greedy
+            command = np.argmax(np.transpose(self.q_table)[state])
+            print("Agent greedily chose", command)
+
+            with open('test.txt', 'a') as f:
+                print("Agent greedily chose", command, file=f)
+            # end of action selection
+
+            # If the command is legal, perform the action
+            expr = self.world.action_expr(int(command))
+            if self.world.is_legal(expr[0], expr[1:]):
+                # take action
+                self.world.take_action(expr[0], expr[1:])
+
+                # Is the goal now satisfied?
+                if self.world.goal_satisfied():
+                    self.display_state()
+                    sat = True
+                    print("Goal Satisfied!")
+                    print("Final state", self.world.state_expr())
+                    with open('test.txt', 'a') as f:
+                        print("Goal Satisfied!", file=f)
+                        print("Final state", self.world.state_expr(), file=f)
+            else:
+                print("Illegal action: something went wrong :(")
+                with open('test.txt', 'a') as f:
+                    print("Illegal action: something went wrong :(", file=f)
+            steps+=1
+        end = datetime.now()
+        print("total time taken: ", end-start)
+        with open('test.txt', 'a') as f:
+            print("total time taken: ", end - start, file=f)
+            print("", file=f)
+            print("", file=f)
 
     def display_state(self):
         state = self.world.state_expr()
