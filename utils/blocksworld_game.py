@@ -49,6 +49,7 @@ class BlocksworldGame:
         print("Starting blocksworld game. 'quit' to quit")
         while True:
             self.display_state()
+            print("heuristic:", self.world.heuristic(self.world.state_expr()))
             command = input("enter action --> ")
             if command == "quit":
                 print("exiting game")

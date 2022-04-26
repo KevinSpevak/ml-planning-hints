@@ -104,3 +104,52 @@ class PlanningWorld:
 
     def goal_satisfied(self):
         return self.all_true(self.problem.goal)
+
+
+    def count_above(self, block, state_expr):
+        if ("holding", block) in state_expr:
+            return 0
+        current = block
+        count = 0
+        while True:
+            if ("clear", current) in state_expr:
+                return count
+            found = False
+            for other in self.objects:
+                if other != current and ("on", other, current) in state_expr:
+                    count += 1
+                    found = True
+                    current = other
+                    break
+            if not found:
+                raise Exception("Unexpected state")
+        return count
+
+    # a simple heruistic where h(s1) > h(s2) iff state s1 is
+    # farther from the goal than s2
+    # defined assuming the "single alphabetical tower" goal
+    def heuristic(self, state_expr):
+        ordered_goals = sorted(self.problem.goal, key=lambda x: x[2], reverse=True)
+#        need_to_move = ordered_goals[0][2]
+#        need_clear = None
+        need_clear = ordered_goals[0][2]
+        ordered_goals = [("ontable", need_clear)] + ordered_goals
+        stack = 0
+        for goal in ordered_goals:
+#            need_to_move = goal[1]
+
+#            if len(goal) > 2:
+#                need_clear = goal[2]
+            if goal in state_expr:
+                stack += 1
+                need_clear = goal[1]
+            else:
+                break
+
+        return len(ordered_goals) - stack + self.count_above(need_clear, state_expr)
+
+#        heuristic = len(ordered_goals) - stack
+#        heuristic += self.count_above(need_to_move, state_expr)
+#        if need_clear:
+#            heuristic += self.count_above(need_clear, state_expr)
+#        return heuristic
