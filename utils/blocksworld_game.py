@@ -113,7 +113,7 @@ class BlocksworldGame:
         y = .9 #gamma
         t = 0
         epoch = 0
-        while e > 0.05:
+        while e > 0.03:
             #self.display_state()
 
             # choose action part
@@ -150,9 +150,9 @@ class BlocksworldGame:
                 max_a = np.amax(np.transpose(self.q_table)[self.state_index[self.world.state_expr()]] )
                 self.q_table[command][state] += a * (reward + y* max_a - self.q_table[command][state])
                 t += 1
-                if self.world.goal_satisfied() or t>100:
+                if self.world.goal_satisfied() or t>5000: #1000 for 6 blocks
                     t = 0
-                    e *= .9999
+                    e *= .9997 #.9995 for 6 blocks
                     epoch += 1
                     print("Starting epoch ", epoch,"\nEpsilon is", e)
                     self.__init__(self.num_blocks)
@@ -199,6 +199,7 @@ class BlocksworldGame:
         with open('test.txt', 'a') as f:
             print(start, file = f)
 
+        greedy = True
         # While the goal isn't satisfied, choose actions and move through the problem
         while not sat:
             print("On step: ", steps)
@@ -209,8 +210,11 @@ class BlocksworldGame:
             # choose action part
             state = self.state_index[self.world.state_expr()]
             # Always greedy
-            command = np.argmax(np.transpose(self.q_table)[state])
-            print("Agent greedily chose", command)
+            if(greedy):
+                command = np.argmax(np.transpose(self.q_table)[state])
+                print("Agent greedily chose", command)
+            else:
+                print("Randomly chose", command)
 
             with open('test.txt', 'a') as f:
                 print("Agent greedily chose", command, file=f)
@@ -222,7 +226,13 @@ class BlocksworldGame:
             if self.world.is_legal(expr[0], expr[1:]):
                 # take action
                 self.world.take_action(expr[0], expr[1:])
+                if not self.world.state_expr() in self.state_index:
+                    print("We're not in Kansas anymore!")
+                    self.state_index[self.world.state_expr()] = len(self.state_index)
+                    self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
+                    self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
 
+                greedy = True
                 # Is the goal now satisfied?
                 if self.world.goal_satisfied():
                     self.display_state()
@@ -234,6 +244,11 @@ class BlocksworldGame:
                         print("Final state", self.world.state_expr(), file=f)
             else:
                 print("Illegal action: something went wrong :(")
+                self.mask[int(command)][self.state_index[self.world.state_expr()]] = 0
+                indices = np.where(np.transpose(self.mask)[state] == 1)[0]
+                command = random.choice(indices)
+                greedy = False
+
                 with open('test.txt', 'a') as f:
                     print("Illegal action: something went wrong :(", file=f)
             steps+=1
