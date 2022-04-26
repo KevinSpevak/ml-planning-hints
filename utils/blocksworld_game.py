@@ -6,12 +6,14 @@ import numpy as np
 import pdb
 import random
 from datetime import datetime
+import pickle
 
 class BlocksworldGame:
     def __init__(self, num_blocks=None):
         self.pddl_path = join(dirname(dirname(__file__)), "pddl", "blocksworld")
         self.domain = Domain.read_from_file(join(self.pddl_path, "domain.pddl"))
         if num_blocks:
+            self.num_blocks = num_blocks
             self.random_instance(num_blocks)
         else:
             self.load_problem_file("sussman.pddl")
@@ -110,19 +112,20 @@ class BlocksworldGame:
         a = .9 #alpha
         y = .9 #gamma
         t = 0
-        while e > 0.1:
-            self.display_state()
+        epoch = 0
+        while e > 0.05:
+            #self.display_state()
 
             # choose action part
             state = self.state_index[self.world.state_expr()]
             if random.random()>e:
                 command = np.argmax(np.transpose(self.q_table)[state])
-                print("Agent greedily chose", command)
+                #print("Agent greedily chose", command)
             else:
-                print("Random action!")
+                #print("Random action!")
                 indices = np.where(np.transpose(self.mask)[state] == 1)[0]
                 command = random.choice(indices)
-                print("Agent chose", command)
+                #print("Agent chose", command)
             # end of action selection
 
             expr = self.world.action_expr(int(command))
@@ -132,7 +135,7 @@ class BlocksworldGame:
 
                 # observe s'
                 if not self.world.state_expr() in self.state_index:
-                    print("We're not in Kansas anymore!")
+                    #print("We're not in Kansas anymore!")
                     self.state_index[self.world.state_expr()] = len(self.state_index)
                     self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
                     self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
@@ -141,40 +144,45 @@ class BlocksworldGame:
                 if self.world.goal_satisfied():
                     self.display_state()
                     print("Goal Satisfied!")
-                    print("Final state", self.world.state_expr())
+                    #print("Final state", self.world.state_expr())
                     reward = 1
                 # update q table
                 max_a = np.amax(np.transpose(self.q_table)[self.state_index[self.world.state_expr()]] )
                 self.q_table[command][state] += a * (reward + y* max_a - self.q_table[command][state])
                 t += 1
-                if self.world.goal_satisfied() or t>1000:
+                if self.world.goal_satisfied() or t>100:
                     t = 0
-                    e *= .95
-                    self.__init__(3)
+                    e *= .9999
+                    epoch += 1
+                    print("Starting epoch ", epoch,"\nEpsilon is", e)
+                    self.__init__(self.num_blocks)
                     if not self.world.state_expr() in self.state_index:
-                        print("We're not in Kansas anymore!")
+                        #print("We're not in Kansas anymore!")
                         self.state_index[self.world.state_expr()] = len(self.state_index)
                         self.q_table = np.append(self.q_table, np.zeros((self.world.num_actions,1)), axis=1)
                         self.mask = np.append(self.mask, np.ones((self.world.num_actions,1)), axis=1)
             else:
-                print("Illegal action")
+                #print("Illegal action")
                 self.mask[int(command)][self.state_index[self.world.state_expr()]] = 0
         print(self.q_table)
         print(self.mask)
         np.save('q_table',self.q_table)
         np.save('q_mask',self.mask)
+        pickle.dump(self.state_index, open("state_index", "wb"))
         # save state index too
 
     def test_q(self):
         self.q_table = np.load('q_table.npy')
-        self.q_mask = np.load('q_mask.npy')
+        self.mask = np.load('q_mask.npy')
+        self.state_index = pickle.load(open("state_index", "rb"))
+
         # load state index
         print(self.q_table)
         print(self.mask)
         steps = 0
 
         # Initialize the blocksworld
-        self.__init__(3)
+        self.__init__(self.num_blocks)
         if not self.world.state_expr() in self.state_index:
             print("We're not in Kansas anymore!")
             self.state_index[self.world.state_expr()] = len(self.state_index)
@@ -206,6 +214,7 @@ class BlocksworldGame:
 
             with open('test.txt', 'a') as f:
                 print("Agent greedily chose", command, file=f)
+                trash = input("")
             # end of action selection
 
             # If the command is legal, perform the action
