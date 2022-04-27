@@ -1,6 +1,7 @@
 # utils for playing a blocksworld game
 from .pddl import Domain, Problem
 from .planning_world import PlanningWorld
+from .z3_planner import Z3Planner
 from os.path import dirname, join
 import numpy as np
 import pdb
@@ -8,6 +9,7 @@ import random
 from datetime import datetime
 import pickle
 import matplotlib.pyplot as plt
+from time import time
 
 class BlocksworldGame:
 
@@ -48,6 +50,38 @@ class BlocksworldGame:
                 for i in range(len(blocks) - 1)]
         self.problem = Problem("random", self.domain, blocks, tuple(init), tuple(goal))
         self.world = PlanningWorld(self.problem)
+
+    def run_classical_planner(self):
+        self.display_state()
+        print("Starting classical planner.")
+        planner = Z3Planner(self.problem)
+        plan = planner.iterative_plan()
+        print("Optimal plan found with ", len(plan), " steps.")
+        self.display_state()
+        for step in plan:
+            self.world.take_action(step[0], step[1:])
+            print()
+            self.display_state()
+
+        print("replanning with # steps known...")
+        start = time()
+        planner = Z3Planner(self.problem, len(plan))
+        plan = planner.plan()
+        end = time()
+        print(plan)
+        print("\nfound plan in ", end - start, " seconds\n")
+
+        print("replanning with hint")
+        hint_step = len(plan)//2
+        # step numbers are 1-indexed
+        hint = (plan[hint_step -1], hint_step)
+        start = time()
+        planner = Z3Planner(self.problem, len(plan))
+        plan = planner.hint_plan([hint])
+        end = time()
+        print(plan)
+        print("\nfound plan in ", end - start, " seconds\n")
+
 
     def open_cli(self):
         print("Starting blocksworld game. 'quit' to quit")
