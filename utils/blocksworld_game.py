@@ -1,6 +1,7 @@
 # utils for playing a blocksworld game
 from .pddl import Domain, Problem
 from .planning_world import PlanningWorld
+from .z3_planner import Z3Planner
 from os.path import dirname, join
 import numpy as np
 import pdb
@@ -48,6 +49,18 @@ class BlocksworldGame:
                 for i in range(len(blocks) - 1)]
         self.problem = Problem("random", self.domain, blocks, tuple(init), tuple(goal))
         self.world = PlanningWorld(self.problem)
+
+    def run_classical_planner(self):
+        self.display_state()
+        print("Starting classical planner.")
+        planner = Z3Planner(self.problem)
+        plan = planner.iterative_plan()
+        print("Optimal plan found with ", len(plan), " steps.")
+        self.display_state()
+        for step in plan:
+            self.world.take_action(step[0], step[1:])
+            print()
+            self.display_state()
 
     def open_cli(self):
         print("Starting blocksworld game. 'quit' to quit")
