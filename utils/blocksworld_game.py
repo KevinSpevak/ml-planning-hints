@@ -9,6 +9,7 @@ import random
 from datetime import datetime
 import pickle
 import matplotlib.pyplot as plt
+from time import time
 
 class BlocksworldGame:
 
@@ -61,6 +62,26 @@ class BlocksworldGame:
             self.world.take_action(step[0], step[1:])
             print()
             self.display_state()
+
+        print("replanning with # steps known...")
+        start = time()
+        planner = Z3Planner(self.problem, len(plan))
+        plan = planner.plan()
+        end = time()
+        print(plan)
+        print("\nfound plan in ", end - start, " seconds\n")
+
+        print("replanning with hint")
+        hint_step = len(plan)//2
+        # step numbers are 1-indexed
+        hint = (plan[hint_step -1], hint_step)
+        start = time()
+        planner = Z3Planner(self.problem, len(plan))
+        plan = planner.hint_plan([hint])
+        end = time()
+        print(plan)
+        print("\nfound plan in ", end - start, " seconds\n")
+
 
     def open_cli(self):
         print("Starting blocksworld game. 'quit' to quit")

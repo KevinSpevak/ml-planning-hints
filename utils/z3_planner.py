@@ -144,3 +144,24 @@ class Z3Planner:
                 return self.get_plan()
             else:
                 self.solver.pop()
+
+    # Takes tuple of (action expression, time_step)
+    def hint_plan(self, hints):
+        self.smt_encode()
+        self.solver.push()
+        print("encoding ", len(hints), " hints:")
+        for hint in hints:
+            print("  ", hint[0], " at time step ", hint[1])
+            self.solver.add(self.get_var(hint[0], hint[1]))
+        self.check_sat()
+        if str(self.sat) == "sat":
+            print("Found plan with hint!")
+            return self.get_plan()
+        else:
+            print("Could not satisfy hints. Trying without hints.")
+        self.solver.pop()
+        self.check_sat()
+        if str(self.sat) == "sat":
+            return self.get_plan()
+        else:
+            return None
