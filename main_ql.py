@@ -7,3 +7,4 @@ if __name__ == "__main__":
     game = BlocksworldGame(num_blocks=7)
     #game.ql_learn_init()
     game.test_q()
+    method_comparison()

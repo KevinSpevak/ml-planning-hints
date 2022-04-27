@@ -7,8 +7,12 @@ import pdb
 import random
 from datetime import datetime
 import pickle
+import matplotlib.pyplot as plt
 
 class BlocksworldGame:
+
+    total_ql_steps = 0;
+
     def __init__(self, num_blocks=None):
         self.pddl_path = join(dirname(dirname(__file__)), "pddl", "blocksworld")
         self.domain = Domain.read_from_file(join(self.pddl_path, "domain.pddl"))
@@ -259,6 +263,16 @@ class BlocksworldGame:
             print("total time taken: ", end - start, file=f)
             print("", file=f)
             print("", file=f)
+        total_ql_steps = steps
+
+    def method_comparison(self):
+        # Comparing the total number of steps each method takes to solve the same problem
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+        methods = ['Q Learning', 'Classical Planner', 'Learning Assisted Planner']
+        steps_req = [total_ql_steps, 20, 4]
+        ax.bar(methods, steps_req)
+        plt.show()
 
     def display_state(self):
         state = self.world.state_expr()
