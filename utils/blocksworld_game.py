@@ -13,11 +13,11 @@ from time import time
 
 class BlocksworldGame:
 
-    total_ql_steps = 0;
-
     def __init__(self, num_blocks=None):
         self.pddl_path = join(dirname(dirname(__file__)), "pddl", "blocksworld")
         self.domain = Domain.read_from_file(join(self.pddl_path, "domain.pddl"))
+        self.total_ql_steps = 0
+        self.total_classical_steps = 0
         if num_blocks:
             self.num_blocks = num_blocks
             self.random_instance(num_blocks)
@@ -70,6 +70,7 @@ class BlocksworldGame:
         end = time()
         print(plan)
         print("\nfound plan in ", end - start, " seconds\n")
+        self.total_classical_steps = len(plan)
 
         print("replanning with hint")
         hint_step = len(plan)//2
@@ -257,7 +258,6 @@ class BlocksworldGame:
 
             with open('test.txt', 'a') as f:
                 print("Agent greedily chose", command, file=f)
-                trash = input("")
             # end of action selection
 
             # If the command is legal, perform the action
@@ -291,22 +291,44 @@ class BlocksworldGame:
                 with open('test.txt', 'a') as f:
                     print("Illegal action: something went wrong :(", file=f)
             steps+=1
+            if steps > 2000:
+                print("Test dump!")
+                steps = 100
+                break
         end = datetime.now()
         print("total time taken: ", end-start)
         with open('test.txt', 'a') as f:
             print("total time taken: ", end - start, file=f)
             print("", file=f)
             print("", file=f)
-        total_ql_steps = steps
+        self.total_ql_steps = steps
 
     def method_comparison(self):
         # Comparing the total number of steps each method takes to solve the same problem
-        fig = plt.figure()
-        ax = fig.add_axes([0,0,1,1])
-        methods = ['Q Learning', 'Classical Planner', 'Learning Assisted Planner']
-        steps_req = [total_ql_steps, 20, 4]
-        ax.bar(methods, steps_req)
+        plt.style.use('seaborn-whitegrid')
+        ql_steps = np.zeros(50)
+        y_ax = np.zeros(100)
+        x_ax = np.zeros(100)
+        i = 0
+        for x in ql_steps:
+            self.test_q()
+            planner = Z3Planner(self.problem)
+            plan = planner.iterative_plan()
+            ql_steps[i] = int(self.total_ql_steps-len(plan))
+            if(ql_steps[i] < 100):
+                y_ax[int(ql_steps[i])]+=1
+            x_ax[i] = i
+            i+=1
+
+        fig = plt.figure(figsize=(20,10))
+        plt.bar(x_ax,y_ax)
+        fig.suptitle('QLearning Deviation from Optimal Solution', fontsize=20)
+        plt.xlabel("Difference in Steps from Optimal Solution")
+        plt.ylabel("Frequency")
+        plt.xlim(0,20)
+        plt.xticks(range(0,21))
         plt.show()
+
 
     def display_state(self):
         state = self.world.state_expr()
