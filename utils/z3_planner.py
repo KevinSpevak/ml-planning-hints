@@ -1,8 +1,10 @@
 import z3
+from time import time
 
 class Z3Planner:
-    def __init__(self, problem, horizon=0):
-        print("initializing problem...")
+    def __init__(self, problem, horizon=0, disp = True):
+        if (disp):
+            print("initializing problem...")
         self.domain = problem.domain
         self.problem = problem
         self.horizon = horizon
@@ -13,7 +15,9 @@ class Z3Planner:
         self.generate_pred_changers()
         self.sat = None
         self.iterative = False
-        print(" done")
+        self.disp = disp
+        if disp:
+            print(" done")
 
     def generate_pred_changers(self):
         self.adders = {}
@@ -89,21 +93,25 @@ class Z3Planner:
         self.smt_encode_frame_axioms(step)
 
     def smt_encode(self):
-        print("Encoding problem...")
+        if self.disp:
+            print("Encoding problem...")
         self.smt_encode_init()
         for step in range(1, self.horizon + 1):
             self.smt_encode_step(step)
-        print(" done.")
+        if self.disp:
+            print(" done.")
 
     def check_sat(self):
         if (self.iterative):
             self.solver.push()
         else:
-            print("Planning...")
+            if self.disp:
+                print("Planning...")
         for clause in self.problem.goal:
             self.solver.add(self.get_var(clause, self.horizon))
         self.sat = self.solver.check()
-        print(self.sat)
+        if self.disp:
+            print(self.sat)
 
     def get_plan(self):
         if self.sat is None:
@@ -124,6 +132,7 @@ class Z3Planner:
     def plan(self):
         self.smt_encode()
         self.check_sat()
+
         if str(self.sat) == "sat":
             return self.get_plan()
         else:
@@ -136,7 +145,8 @@ class Z3Planner:
         self.smt_encode_init()
         # Should not go over this limit for blocksworld
         for step in range(1, 4 * len(self.problem.objects)):
-            print("trying step...", step)
+            if self.disp:
+                print("trying step...", step)
             self.horizon = step
             self.smt_encode_step(step)
             self.check_sat()
@@ -146,22 +156,35 @@ class Z3Planner:
                 self.solver.pop()
 
     # Takes tuple of (action expression, time_step)
+    # requires planner to already be encoded with self.smt_encode()
     def hint_plan(self, hints):
-        self.smt_encode()
+        # need to track z3 push/pop time for stats
+        start = time()
         self.solver.push()
-        print("encoding ", len(hints), " hints:")
+        self.z3_stack_time = time() - start
+        self.hint_used = True
+
         for hint in hints:
-            print("  ", hint[0], " at time step ", hint[1])
             self.solver.add(self.get_var(hint[0], hint[1]))
         self.check_sat()
+        
         if str(self.sat) == "sat":
-            print("Found plan with hint!")
+            if self.disp:
+                print("Found plan with hint!")
             return self.get_plan()
         else:
-            print("Could not satisfy hints. Trying without hints.")
+            if self.disp:
+                print("Could not satisfy hints. Trying without hints.")
+        self.hint_used = False
+        start = time()
         self.solver.pop()
+        self.z3_stack_time += time() - start
         self.check_sat()
         if str(self.sat) == "sat":
+            if self.disp:
+                print("Found plan without hints.")
             return self.get_plan()
         else:
+            if self.disp:
+                print("Could not find plan")
             return None

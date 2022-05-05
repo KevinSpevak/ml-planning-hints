@@ -10,6 +10,7 @@ from datetime import datetime
 import pickle
 import matplotlib.pyplot as plt
 from time import time
+import gc
 
 class BlocksworldGame:
 
@@ -22,7 +23,7 @@ class BlocksworldGame:
             self.num_blocks = num_blocks
             self.random_instance(num_blocks)
         else:
-            self.load_problem_file("sussman.pddl")
+            self.load_problem_file("medium.pddl")
 
     def load_problem_file(self, fname):
         self.problem = Problem.read_from_file(self.domain, join(self.pddl_path, fname))
@@ -52,6 +53,17 @@ class BlocksworldGame:
         self.world = PlanningWorld(self.problem)
 
     def run_classical_planner(self):
+        plan = self.run_iterative_planner()
+        gc.collect()
+        step = len(plan)
+        self.run_known_steps_planner(step)
+        gc.collect()
+        hint_step = step//2
+        # step numbers are 1-indexed
+        hint = (plan[hint_step -1], hint_step)
+        self.run_hint_planner(step, hint)
+
+    def run_iterative_planner(self):
         self.display_state()
         print("Starting classical planner.")
         planner = Z3Planner(self.problem)
@@ -62,26 +74,26 @@ class BlocksworldGame:
             self.world.take_action(step[0], step[1:])
             print()
             self.display_state()
+        return plan
 
+    def run_known_steps_planner(self, steps):
         print("replanning with # steps known...")
         start = time()
-        planner = Z3Planner(self.problem, len(plan))
-        plan = planner.plan()
+        planner2 = Z3Planner(self.problem, steps)
+        plan = planner2.plan()
         end = time()
         print(plan)
-        print("\nfound plan in ", end - start, " seconds\n")
+        print("total time: ", end - start)
 
+    def run_hint_planner(self, steps, hint):
         print("replanning with hint")
-        hint_step = len(plan)//2
-        # step numbers are 1-indexed
-        hint = (plan[hint_step -1], hint_step)
         start = time()
-        planner = Z3Planner(self.problem, len(plan))
-        plan = planner.hint_plan([hint])
+        planner3 = Z3Planner(self.problem, steps)
+        planner3.smt_encode()
+        plan = planner3.hint_plan([hint])
         end = time()
         print(plan)
-        print("\nfound plan in ", end - start, " seconds\n")
-
+        print("total time: ", end - start)
 
     def open_cli(self):
         print("Starting blocksworld game. 'quit' to quit")
